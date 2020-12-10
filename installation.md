@@ -128,6 +128,12 @@ cp /etc/fstab /etc/fstab.bak
 
 echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 
+### Update mirror list
+
+pacman -S pacman-contrib
+cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
+rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist
+
 ### Install CPU Microde files (Intel CPU)
 
 pacman -S intel-ucode
@@ -144,6 +150,86 @@ shutdown now
 
 # Installing Packages
 
-sudo pacman -S git vscode go
+sudo pacman -S git vscode go docker docker-compose python3 jq python-pip
 
-cd /tmp && wget https://aur.archlinux.org/packages/google-chrome/ && cd google-chrome && makepkg -i -s
+systemctl enable docker
+
+cd /tmp && git clone https://aur.archlinux.org/google-chrome.git && cd google-chrome && makepkg -i -s
+cd /tmp && git clone https://aur.archlinux.org/slack-desktop.git && cd slack-desktop && makepkg -i -s
+
+curl -L -o /tmp/zoom_x86_64.pkg.tar.xz https://zoom.us/client/latest/zoom_x86_64.pkg.tar.xz && sudo pacman -U /tmp/zoom_x86_64.pkg.tar.xz
+
+### bluetooth
+
+#### For setup instructions go to https://wiki.archlinux.org/index.php/bluetooth_headse
+
+sudo pacman -S pulseaudio-bluetooth bluez-utils
+systemctl enable bluetooth && systemctl start bluetooth
+
+### SSH agent
+
+vim ~/.config/systemd/user/ssh-agent.service
+
+```
+[Unit]
+Description=SSH key agent
+
+[Service]
+Type=simple
+Environment=SSH_AUTH_SOCK=%t/ssh-agent.socket
+# DISPLAY required for ssh-askpass to work
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/ssh-agent -D -a $SSH_AUTH_SOCK
+
+[Install]
+WantedBy=default.target
+```
+
+vim ~/.pam_environment
+
+```
+SSH_AUTH_SOCK DEFAULT="${XDG_RUNTIME_DIR}/ssh-agent.socket"
+```
+
+systemctl --user enable ssh-agent && systemctl --user start ssh-agent
+
+### git config
+
+```
+[user]
+        email = <email>
+        name = <name>
+[url "git@github.com:"]
+        insteadOf = https://github.com/
+[core]
+        editor = vim
+[pull]
+	rebase = false
+```
+
+**_ logout and log back in_**
+
+## Kubernete Tools
+
+sudo pacman -S k9s kubectl kubectx helm
+
+sudo curl -L -o /usr/bin/stern https://github.com/wercker/stern/releases/download/1.11.0/stern_linux_amd64 && sudo chmod +x /usr/bin/stern
+
+## Auth tools
+
+CURRENT*VERSION=2.27.1
+curl -L -o /tmp/saml2aws*${CURRENT_VERSION}_linux_amd64.tar.gz https://github.com/Versent/saml2aws/releases/download/v${CURRENT*VERSION}/saml2aws*${CURRENT_VERSION}_linux_amd64.tar.gz
+sudo tar -xzvf /tmp/saml2aws_${CURRENT_VERSION}\_linux_amd64.tar.gz -C /usr/bin
+sudo chmod u+x /usr/bin/saml2aws
+
+## Aws
+
+sudo pacman -S aws-cli
+cd /tmp && git clone https://aur.archlinux.org/aws-session-manager-plugin.git && cd aws-session-manager-plugin && makepkg -i -s
+pip3 install --user boto3
+
+**_ setup ~/.aws/config and ~/.aws/credentials _**
+
+## terraform
+
+sudo pacman -S terraform terragrunt
